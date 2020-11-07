@@ -3,6 +3,9 @@
 
 using HybridMessageApp.Data;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.MobileBlazorBindings;
 using Microsoft.MobileBlazorBindings.WebView;
 using System.Threading.Tasks;
 using Xamarin.Forms;
@@ -11,17 +14,34 @@ namespace HybridMessageApp
 {
     public partial class MainPage : Application
     {
-        public MainPage()
-        {
-            BlazorHybridHost.AddResourceAssembly(GetType().Assembly, contentRoot: "WebUI/wwwroot");
+        public static IHost Host { get; private set; }
 
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddBlazorHybrid();
-            serviceCollection.AddLogging();
-            serviceCollection.AddSingleton<AppState>();
-            BlazorHybridDefaultServices.Instance = serviceCollection.BuildServiceProvider();
+        public MainPage(IFileProvider fileProvider = null)
+        {
+            var hostBuilder = MobileBlazorBindingsHost.CreateDefaultBuilder()
+                .ConfigureServices((hostContext, services) =>
+                {
+                    // Adds web-specific services such as NavigationManager
+                    services.AddBlazorHybrid();
+
+                    // Register app-specific services
+                    services.AddSingleton<AppState>();
+                })
+                .UseWebRoot("wwwroot");
+
+            if (fileProvider != null)
+            {
+                hostBuilder.UseStaticFiles(fileProvider);
+            }
+            else
+            {
+                hostBuilder.UseStaticFiles();
+            }
+            Host = hostBuilder.Build();
 
             InitializeComponent();
+
+            FolderWebView.Host = Host;
 
             MasterDetails.IsPresented = false;
             WorkaroundDisplayIssue();
